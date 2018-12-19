@@ -97,9 +97,10 @@ func Subscribe(api sqsiface.SQSAPI, queueName string, serializer eventsource.Ser
 func receiveLoop(ctx context.Context, printf logFunc, api sqsiface.SQSAPI, queueUrl *string, receive chan *sqs.Message) error {
 	for {
 		output, err := api.ReceiveMessageWithContext(ctx, &sqs.ReceiveMessageInput{
-			QueueUrl:          queueUrl,
-			VisibilityTimeout: aws.Int64(240),
-			WaitTimeSeconds:   aws.Int64(20),
+			MaxNumberOfMessages: aws.Int64(10),
+			QueueUrl:            queueUrl,
+			VisibilityTimeout:   aws.Int64(240),
+			WaitTimeSeconds:     aws.Int64(20),
 		})
 		if err != nil {
 			select {
