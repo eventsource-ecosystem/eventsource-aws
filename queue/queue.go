@@ -88,7 +88,7 @@ func Subscribe(api sqsiface.SQSAPI, queueName string, serializer eventsource.Ser
 		return handleLoop(ctx, options.printf, received, completed, serializer, fn)
 	})
 	group.Go(func() error {
-		return deleteLoop(ctx, options.printf, api, queueUrl, completed)
+		return deleteLoop(ctx, options.printf, api, queueUrl, 15*time.Second, completed)
 	})
 
 	return sub, nil
@@ -170,7 +170,7 @@ func handleLoop(ctx context.Context, printf logFunc, received, completed chan *s
 	}
 }
 
-func deleteLoop(ctx context.Context, printf logFunc, api sqsiface.SQSAPI, queueUrl *string, completed chan *sqs.Message) error {
+func deleteLoop(ctx context.Context, printf logFunc, api sqsiface.SQSAPI, queueUrl *string, interval time.Duration, completed chan *sqs.Message) error {
 	input := &sqs.DeleteMessageBatchInput{
 		QueueUrl: queueUrl,
 	}
@@ -199,10 +199,16 @@ func deleteLoop(ctx context.Context, printf logFunc, api sqsiface.SQSAPI, queueU
 	}
 	defer deleteMessages()
 
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+
+		case <-ticker.C:
+			deleteMessages()
 
 		case v := <-completed:
 			input.Entries = append(input.Entries, &sqs.DeleteMessageBatchRequestEntry{
